@@ -2,7 +2,7 @@ with open('APItoken.txt') as f:
     APItoken = f.readlines()[0].rstrip('\n')
 
 config = {
-    'url': 'https://quantumexperience.ng.bluemix.net.api',
+    'url': 'https://quantumexperience.ng.bluemix.net/api',
     'hub': None,
     'group': None,
     'project': None
