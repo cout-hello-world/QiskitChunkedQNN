@@ -1,5 +1,7 @@
+#!/usr/bin/env python3
 import argparse
 import math
+import time
 
 import qiskit
 
@@ -48,7 +50,14 @@ def generate_circuit(begin_state, weights):
         qc.ry(2.0 * math.acos(1.0 / math.sqrt(5.0)), q[1])
     elif begin_state == 3:
         # P state
-        raise Exception("NYI")
+        parameters = [4.511031, 2.300524, 5.355890]
+        qc.ry(-parameters[0], q[1])
+        qc.swap(q[0], q[1])
+
+        qc.ry(parameters[1], q[1])
+        qc.swap(q[0], q[1])
+
+        qc.ry(parameters[2], q[1])
 
     for j in range(0, time_chunks):
         qc.cx(q[0], q[1])
@@ -64,17 +73,29 @@ def generate_circuit(begin_state, weights):
         qc.ry(weights[j][1], q[0])
         qc.ry(weights[j][2], q[1])
 
+    qc.measure(q, c)
+    return qc
+
+def execute(qc, backend, runs):
+    job = qiskit.execute(qc, backend=backend, shots=runs)
+    while not job.done:
+        time.sleep(10)
+    return job.result()
 
 if __name__ == '__main__':
+    default_count = 1024
     parser = argparse.ArgumentParser()
     parser.add_argument('--no-test', help='run on real hardware',
                         action='store_true')
+    parser.add_argument('--count',
+      help=('number of times to run each state (default ' + str(default_count) + ')'),
+      default=default_count)
     args = parser.parse_args()
-
     if args.no_test:
         test = False
     else:
         test = True
+    count = int(args.count)
 
     params = {'local': test, 'simulator': test}
     if not test:
@@ -83,4 +104,21 @@ if __name__ == '__main__':
     print('backend:', backend)
 
     weights = get_weights()
-    qc = generate_circuit(0, weights)
+    circuits = [generate_circuit(n, weights) for n in range(0, 4)]
+
+    target = [1.0, 0.0, 0.0, 0.663325]
+    for n in range(0, 4):
+        result = execute(circuits[n], backend, count)
+
+        entaglement = 0
+        for bits in ['00', '01', '10', '11']:
+            res_count = result.get_counts().get(bits)
+            if res_count == None:
+                res_count = 0
+            #print(bits, ': ', res_count / count, ' ', sep='', end= '')
+            if bits == '00' or bits == '11':
+                entaglement = entaglement + res_count
+            else:
+                entaglement = entaglement - res_count
+
+        print('entaglement:', math.fabs(entaglement / count), 'target:', target[n])
