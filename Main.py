@@ -51,12 +51,15 @@ def generate_circuit(begin_state, weights):
     elif begin_state == 3:
         # P state
         parameters = [4.511031, 2.300524, 5.355890]
+        qc.cu3(parameters[0], 0, 0, q[0], q[1]) # cu3 for controlled ry
         qc.ry(-parameters[0], q[1])
-        qc.swap(q[0], q[1])
 
+        qc.swap(q[0], q[1])
+        qc.cu3(-parameters[1], 0, 0, q[0], q[1])
         qc.ry(parameters[1], q[1])
-        qc.swap(q[0], q[1])
 
+        qc.swap(q[0], q[1])
+        qc.cu3(-parameters[2], 0, 0, q[0], q[1])
         qc.ry(parameters[2], q[1])
 
     for j in range(0, time_chunks):
@@ -120,5 +123,6 @@ if __name__ == '__main__':
                 entaglement = entaglement + res_count
             else:
                 entaglement = entaglement - res_count
-
-        print('entaglement:', math.fabs(entaglement / count), 'target:', target[n])
+        obs = math.fabs(entaglement / count)
+        des = target[n]
+        print('entaglement:', obs, 'target:', des, 'error', math.fabs(des - obs))
