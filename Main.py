@@ -2,6 +2,7 @@
 import argparse
 import math
 import time
+import csv
 
 import qiskit
 
@@ -85,44 +86,63 @@ def execute(qc, backend, runs):
         time.sleep(10)
     return job.result()
 
+def run_epoch(backcend, circuits, count):
+    results = {'Bell': [], 'Flat': [], 'C': [], 'P': []}
+    for n in range(0, 4):
+        if n == 0:
+            res = results['Bell']
+        elif n == 1:
+            res = results['Flat']
+        elif n == 2:
+            res = results['C']
+        elif n == 3:
+            res = results['P']
+        result = execute(circuits[n], backend, count)
+        for bits in ['00', '01', '10', '11']:
+            res_count = result.get_counts().get(bits)
+            if res_count == None:
+                res.append(0)
+            else:
+                res.append(res_count)
+    return results
+
 if __name__ == '__main__':
-    default_count = 1024
+    default_count = 1000
     parser = argparse.ArgumentParser()
     parser.add_argument('--no-test', help='run on real hardware',
                         action='store_true')
-    parser.add_argument('--count',
-      help=('number of times to run each state (default ' + str(default_count) + ')'),
+    parser.add_argument('--delta',
+      help=('change in runs between epochs (default ' + str(default_count) + ')'),
       default=default_count)
+    parser.add_argument('--epochs',
+      help='number of epochs in increments of delta runs (default 1)',
+      default=1)
+    parser.add_argument('--filename',
+      help='name of output file',
+      default='out.csv')
     args = parser.parse_args()
     if args.no_test:
         test = False
     else:
         test = True
-    count = int(args.count)
+    delta = int(args.delta)
+    epochs = int(args.epochs)
+    filename = args.filename
 
     params = {'local': test, 'simulator': test}
     if not test:
         qiskit.register(Qconfig.APItoken, Qconfig.config['url'])
     backend = qiskit.least_busy(qiskit.available_backends(params))
-    print('backend:', backend)
 
     weights = get_weights()
     circuits = [generate_circuit(n, weights) for n in range(0, 4)]
 
-    target = [1.0, 0.0, 0.0, 0.663325]
-    for n in range(0, 4):
-        result = execute(circuits[n], backend, count)
-
-        entaglement = 0
-        for bits in ['00', '01', '10', '11']:
-            res_count = result.get_counts().get(bits)
-            if res_count == None:
-                res_count = 0
-            #print(bits, ': ', res_count / count, ' ', sep='', end= '')
-            if bits == '00' or bits == '11':
-                entaglement = entaglement + res_count
-            else:
-                entaglement = entaglement - res_count
-        obs = math.fabs(entaglement / count)
-        des = target[n]
-        print('entaglement:', obs, 'target:', des, 'error', math.fabs(des - obs))
+    with open(filename, 'w', newline='') as outfile:
+        fields = ['backend', 'shots', 'state', '00', '01', '10', '11']
+        writer = csv.writer(outfile)
+        writer.writerow(fields)
+        for count in range(delta, (epochs + 1) * delta, delta):
+            eres = run_epoch(backend, circuits, count)
+            for state in ['Bell', 'Flat', 'C', 'P']:
+                writer.writerow([backend, count, state, eres[state][0],
+                                eres[state][1], eres[state][2], eres[state][3]])
