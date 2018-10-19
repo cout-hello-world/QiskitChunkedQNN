@@ -137,7 +137,7 @@ if __name__ == '__main__':
     weights = get_weights()
     circuits = [generate_circuit(n, weights) for n in range(0, 4)]
 
-    with open(filename, 'w', newline='') as outfile:
+    with open(filename, 'w', newline='', buffering=1) as outfile:
         fields = ['backend', 'shots', 'state', '00', '01', '10', '11']
         writer = csv.writer(outfile)
         writer.writerow(fields)
