@@ -114,19 +114,23 @@ if __name__ == '__main__':
     parser.add_argument('--delta',
       help=('change in runs between epochs (default ' + str(default_count) + ')'),
       default=default_count)
-    parser.add_argument('--epochs',
-      help='number of epochs in increments of delta runs (default 1)',
+    parser.add_argument('--end',
+      help='number times delta to end with',
       default=1)
     parser.add_argument('--filename',
       help='name of output file',
       default='out.csv')
+    parser.add_argument('--start',
+      help='number of times delta to start with (default 1)',
+      default=1)
     args = parser.parse_args()
     if args.no_test:
         test = False
     else:
         test = True
     delta = int(args.delta)
-    epochs = int(args.epochs)
+    end = int(args.end)
+    start = int(args.start)
     filename = args.filename
 
     params = {'local': test, 'simulator': test}
@@ -141,7 +145,7 @@ if __name__ == '__main__':
         fields = ['backend', 'shots', 'state', '00', '01', '10', '11']
         writer = csv.writer(outfile)
         writer.writerow(fields)
-        for count in range(delta, (epochs + 1) * delta, delta):
+        for count in range(delta * start, (end + 1) * delta, delta):
             eres = run_epoch(backend, circuits, count)
             for state in ['Bell', 'Flat', 'C', 'P']:
                 writer.writerow([backend, count, state, eres[state][0],
