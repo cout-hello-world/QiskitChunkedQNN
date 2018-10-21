@@ -5,6 +5,9 @@ import time
 import csv
 
 import qiskit
+import qiskit.backends.ibmq as ibmq
+from qiskit.backends.jobstatus import JobStatus
+from qiskit import IBMQ, Aer
 
 import Qconfig
 
@@ -81,29 +84,33 @@ def generate_circuit(begin_state, weights):
     return qc
 
 def execute(qc, backend, runs):
-    job = qiskit.execute(qc, backend=backend, shots=runs)
-    while not job.done:
-        time.sleep(10)
-    return job.result()
-
-def run_epoch(backcend, circuits, count):
-    results = {'Bell': [], 'Flat': [], 'C': [], 'P': []}
-    for n in range(0, 4):
-        if n == 0:
-            res = results['Bell']
-        elif n == 1:
-            res = results['Flat']
-        elif n == 2:
-            res = results['C']
-        elif n == 3:
-            res = results['P']
-        result = execute(circuits[n], backend, count)
+    max_runs_per_api_call = 8000
+    return_val = [0, 0, 0, 0]
+    while runs > 0:
+        if runs <= max_runs_per_api_call:
+            sh = runs
+            runs = 0
+        else:
+            sh = max_runs_per_api_call
+            runs -= max_runs_per_api_call
+        job = qiskit.execute(qc, backend, shots=sh)
+        res = job.result()
+        idx = 0
         for bits in ['00', '01', '10', '11']:
-            res_count = result.get_counts().get(bits)
-            if res_count == None:
-                res.append(0)
-            else:
-                res.append(res_count)
+            res_count = res.get_counts().get(bits)
+            if res_count != None:
+                return_val[idx] += res_count
+            idx += 1
+
+    return return_val
+
+def run_epoch(backend, circuits, count):
+    results = {'Bell': [], 'Flat': [], 'C': [], 'P': []}
+    idx = 0
+    for state in ['Bell', 'Flat', 'C', 'P']:
+        results[state] = execute(circuits[idx], backend, count)
+        idx += 1
+
     return results
 
 if __name__ == '__main__':
@@ -135,8 +142,11 @@ if __name__ == '__main__':
 
     params = {'local': test, 'simulator': test}
     if not test:
-        qiskit.register(Qconfig.APItoken, Qconfig.config['url'])
-    backend = qiskit.least_busy(qiskit.available_backends(params))
+        IBMQ.enable_account(Qconfig.APItoken, Qconfig.config['url'])
+    if test:
+        backend = Aer.get_backend('qasm_simulator')
+    else:
+        backend = ibmq.least_busy(IBMQ.backends())
 
     weights = get_weights()
     circuits = [generate_circuit(n, weights) for n in range(0, 4)]
