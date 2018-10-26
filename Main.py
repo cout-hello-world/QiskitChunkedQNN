@@ -25,7 +25,7 @@ def get_weights():
     weights = [[0.0 for x in range(5)] for y in range(time_chunks)]
     for i in range(0, time_chunks):
         time_scale = time_chunks * time_interval * math.pi
-        normal_factor_a = math.sqrt(math.pow(tunneling_a[i], 2) + math.pow(bias_b[i], 2))
+        normal_factor_a = math.sqrt(math.pow(tunneling_a[i], 2) + math.pow(bias_a[i], 2))
         normal_factor_b = math.sqrt(math.pow(tunneling_b[i], 2) + math.pow(bias_b[i], 2))
 
         weights[i][0] = time_scale * coupling[i]
@@ -59,8 +59,8 @@ def generate_circuit(begin_state, weights):
         qc.ry(-parameters[0], q[1])
 
         qc.swap(q[0], q[1])
-        qc.cu3(-parameters[1], 0, 0, q[0], q[1])
-        qc.ry(parameters[1], q[1])
+        qc.cu3(parameters[1], 0, 0, q[0], q[1])
+        qc.ry(-parameters[1], q[1])
 
         qc.swap(q[0], q[1])
         qc.cu3(-parameters[2], 0, 0, q[0], q[1])
