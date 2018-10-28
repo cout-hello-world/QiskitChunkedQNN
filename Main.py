@@ -3,6 +3,7 @@ import argparse
 import math
 import time
 import csv
+import sys
 
 import qiskit
 import qiskit.backends.ibmq as ibmq
@@ -36,7 +37,7 @@ def get_weights():
 
     return weights
 
-def generate_circuit(begin_state, weights):
+def generate_circuit(begin_state, weights, setup_only=False):
     q = qiskit.QuantumRegister(2)
     c = qiskit.ClassicalRegister(2)
     qc = qiskit.QuantumCircuit(q, c)
@@ -66,19 +67,20 @@ def generate_circuit(begin_state, weights):
         qc.cu3(-parameters[2], 0, 0, q[0], q[1])
         qc.ry(parameters[2], q[1])
 
-    for j in range(0, time_chunks):
-        qc.cx(q[0], q[1])
-        qc.rz(weights[j][0], q[1])
-        qc.cx(q[0], q[1])
+    if not setup_only:
+        for j in range(0, time_chunks):
+            qc.cx(q[0], q[1])
+            qc.rz(weights[j][0], q[1])
+            qc.cx(q[0], q[1])
 
-        qc.ry(-weights[j][1], q[0])
-        qc.ry(-weights[j][2], q[1])
+            qc.ry(-weights[j][1], q[0])
+            qc.ry(-weights[j][2], q[1])
 
-        qc.rz(weights[j][3], q[0])
-        qc.rz(weights[j][4], q[1])
+            qc.rz(weights[j][3], q[0])
+            qc.rz(weights[j][4], q[1])
 
-        qc.ry(weights[j][1], q[0])
-        qc.ry(weights[j][2], q[1])
+            qc.ry(weights[j][1], q[0])
+            qc.ry(weights[j][2], q[1])
 
     qc.measure(q, c)
     return qc
@@ -130,6 +132,10 @@ if __name__ == '__main__':
     parser.add_argument('--start',
       help='number of times delta to start with (default 1)',
       default=1)
+    parser.add_argument('--setup-only',
+      help="Only set up states. (Don't run chunks)", action='store_true')
+    parser.add_argument('--list-backends', help="Only list backends", action='store_true')
+    parser.add_argument('--backend', help='Use this backend')
     args = parser.parse_args()
     if args.no_test:
         test = False
@@ -139,17 +145,42 @@ if __name__ == '__main__':
     end = int(args.end)
     start = int(args.start)
     filename = args.filename
+    if args.setup_only:
+        setup_only = True
+    else:
+        setup_only = False
+    if args.list_backends:
+        list_backends = True
+    else:
+        list_backends = False
+    backend_name = args.backend
+    if (not backend_name) and (not list_backends):
+        print('Must pass one of --backend or --list-backends')
+        sys.exit(1)
 
-    params = {'local': test, 'simulator': test}
+
     if not test:
         IBMQ.enable_account(Qconfig.APItoken, Qconfig.config['url'])
+
+    if list_backends:
+        if test:
+            backends = Aer.backends()
+        else:
+            backends = IBMQ.backends()
+            print(backends)
+        for b in backends:
+            print(b)
+        sys.exit(0)
+
     if test:
-        backend = Aer.get_backend('qasm_simulator')
+        backend = Aer.get_backend(backend_name)
     else:
-        backend = ibmq.least_busy(IBMQ.backends())
+        backend = IBMQ.get_backend(backend_name)
+
 
     weights = get_weights()
-    circuits = [generate_circuit(n, weights) for n in range(0, 4)]
+    circuits = [generate_circuit(n, weights, setup_only=setup_only)
+                for n in range(0, 4)]
 
     with open(filename, 'w', newline='', buffering=1) as outfile:
         fields = ['backend', 'shots', 'state', '00', '01', '10', '11']
