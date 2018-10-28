@@ -99,7 +99,7 @@ def execute(qc, backend, runs):
         job = qiskit.execute(qc, backend, shots=sh)
         res = job.result()
         idx = 0
-        for bits in ['00', '01', '10', '11']:
+        for bits in ['00', '10', '01', '11']:
             res_count = res.get_counts().get(bits)
             if res_count != None:
                 return_val[idx] += res_count
@@ -193,7 +193,7 @@ if __name__ == '__main__':
                 for n in range(0, 4)]
 
     with open(filename, 'w', newline='', buffering=1) as outfile:
-        fields = ['backend', 'shots', 'state', '00', '01', '10', '11']
+        fields = ['backend', 'shots', 'state', '00', '10', '01', '11']
         writer = csv.writer(outfile)
         writer.writerow(fields)
         for count in range(delta * start, (end + 1) * delta, delta):
