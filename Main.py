@@ -10,13 +10,12 @@ import qiskit.backends.ibmq as ibmq
 from qiskit.backends.jobstatus import JobStatus
 from qiskit import IBMQ, Aer
 
-import Qconfig
-
+qx_url = 'https://quantumexperience.ng.bluemix.net/api'
 
 time_chunks = 4
-time_interval = 1.580 / (8.0 * math.pi)
 
 def get_weights():
+    time_interval = 1.580 / (8.0 * math.pi)
     tunneling_a = [2.4886, 2.4730, 2.4852, 2.4949]
     tunneling_b = [2.4886, 2.4730, 2.4852, 2.4949]
     bias_a = [0.092889, 0.11577, 0.095443, 0.083292]
@@ -26,8 +25,10 @@ def get_weights():
     weights = [[0.0 for x in range(5)] for y in range(time_chunks)]
     for i in range(0, time_chunks):
         time_scale = time_chunks * time_interval * math.pi
-        normal_factor_a = math.sqrt(math.pow(tunneling_a[i], 2) + math.pow(bias_a[i], 2))
-        normal_factor_b = math.sqrt(math.pow(tunneling_b[i], 2) + math.pow(bias_b[i], 2))
+        normal_factor_a = math.sqrt(math.pow(tunneling_a[i], 2) +
+          math.pow(bias_a[i], 2))
+        normal_factor_b = math.sqrt(math.pow(tunneling_b[i], 2) +
+          math.pow(bias_b[i], 2))
 
         weights[i][0] = time_scale * coupling[i]
         weights[i][1] = math.asin(tunneling_a[i] / normal_factor_a)
@@ -121,26 +122,34 @@ if __name__ == '__main__':
     parser.add_argument('--no-test', help='run on real hardware',
                         action='store_true')
     parser.add_argument('--delta',
-      help=('change in runs between epochs (default ' + str(default_count) + ')'),
-      default=default_count)
+      help=('change in runs between epochs (default ' +
+        str(default_count) + ')'), default=default_count)
     parser.add_argument('--end',
-      help='number times delta to end with',
+      help='number times delta to end with (default 1)',
       default=1)
+    default_out_file = 'out.csv'
     parser.add_argument('--filename',
-      help='name of output file',
-      default='out.csv')
+      help='name of output file (default ' + default_out_file + ')',
+      default=default_out_file)
     parser.add_argument('--start',
       help='number of times delta to start with (default 1)',
       default=1)
     parser.add_argument('--setup-only',
       help="Only set up states. (Don't run chunks)", action='store_true')
-    parser.add_argument('--list-backends', help="Only list backends", action='store_true')
+    parser.add_argument('--list-backends', help="Only list backends",
+      action='store_true')
     parser.add_argument('--backend', help='Use this backend')
+    default_api_token_path = 'APItoken.txt'
+    parser.add_argument('--token-file',
+      help=('Path to file containing API token (default ' +
+        default_api_token_path + ')'), default=default_api_token_path)
+
     args = parser.parse_args()
     if args.no_test:
         test = False
     else:
         test = True
+    api_token_path = args.token_file
     delta = int(args.delta)
     end = int(args.end)
     start = int(args.start)
@@ -160,14 +169,15 @@ if __name__ == '__main__':
 
 
     if not test:
-        IBMQ.enable_account(Qconfig.APItoken, Qconfig.config['url'])
+        with open(api_token_path, 'r') as f:
+            APItoken = f.readlines()[0].rstrip('\n')
+        IBMQ.enable_account(APItoken, qx_url)
 
     if list_backends:
         if test:
             backends = Aer.backends()
         else:
             backends = IBMQ.backends()
-            print(backends)
         for b in backends:
             print(b)
         sys.exit(0)
@@ -190,4 +200,4 @@ if __name__ == '__main__':
             eres = run_epoch(backend, circuits, count)
             for state in ['Bell', 'Flat', 'C', 'P']:
                 writer.writerow([backend, count, state, eres[state][0],
-                                eres[state][1], eres[state][2], eres[state][3]])
+                  eres[state][1], eres[state][2], eres[state][3]])
