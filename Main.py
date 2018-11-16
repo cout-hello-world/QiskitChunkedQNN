@@ -14,13 +14,32 @@ qx_url = 'https://quantumexperience.ng.bluemix.net/api'
 
 time_chunks = 4
 
-def get_weights():
+def get_weights(noise=False, decoherence=False):
     time_interval = 1.580 / (8.0 * math.pi)
-    tunneling_a = [2.4886, 2.4730, 2.4852, 2.4949]
-    tunneling_b = [2.4886, 2.4730, 2.4852, 2.4949]
-    bias_a = [0.092889, 0.11577, 0.095443, 0.083292]
-    bias_b = [0.092889, 0.11577, 0.095443, 0.083292]
-    coupling = [0.03820, 0.12759, 0.11692, 0.038180]
+    if not noise and not decoherence:
+        tunneling_a = [2.4886, 2.4730, 2.4852, 2.4949]
+        tunneling_b = [2.4886, 2.4730, 2.4852, 2.4949]
+        bias_a = [0.092889, 0.11577, 0.095443, 0.083292]
+        bias_b = [0.092889, 0.11577, 0.095443, 0.083292]
+        coupling = [0.03820, 0.12759, 0.11692, 0.038180]
+    elif not noise and decoherence:
+        tunneling_a = [2.2659839774063, 2.35693757391734, 2.53169447569211, 2.76968791602036]
+        tunneling_b = [2.27906181795579, 2.37066713524698, 2.55043045448358, 2.79886639941257]
+        bias_a = [0.096030498257791, 0.12198502658194, 0.091295987621283, 0.046825320333615]
+        bias_b = [0.09495851100657, 0.123706597274963, 0.091733070147231, 0.047366327441214]
+        coupling = [0.0650289956994, 0.114261449042702, 0.110980332537371, 0.067624857565807]
+    elif noise and not decoherence:
+        tunneling_a = [1.84855122259435, 3.44850982618433, 3.46420436257955, 0.675914471058636]
+        tunneling_b = [2.047355773728, 3.5919549082169, 3.70939783548255, 1.08055210178105]
+        bias_a = [0.067040715210162, 0.150436749829005, 0.111915721202186, 0.087130534547371]
+        bias_b = [0.01959892037637, 0.167558036292694, 0.11151189326291, 0.065784621542093]
+        coupling = [0.017689035038624, 0.142287609964454, 0.127910134864668, 0.016442994853455]
+    elif noise and decoherence:
+        tunneling_a = [1.8522947273507, 3.54218806945153, 3.36289364455586, 0.682010111436336]
+        tunneling_b = [2.04041622838001, 3.66507780707179, 3.59752800505758, 1.12687688355898]
+        bias_a = [0.081934919522767, 0.127162576694709, 0.0792340439726, 0.038734867039432]
+        bias_b = [0.051739078875095, 0.149134634167826, 0.083249923691573, 0.007052541979843]
+        coupling = [0.016661336670829, 0.136061520564601, 0.130071100478697, 0.013526207733738]
 
     weights = [[0.0 for x in range(5)] for y in range(time_chunks)]
     for i in range(0, time_chunks):
@@ -143,8 +162,20 @@ if __name__ == '__main__':
     parser.add_argument('--token-file',
       help=('Path to file containing API token (default ' +
         default_api_token_path + ')'), default=default_api_token_path)
+    parser.add_argument('--noise', help='Use weights trained with noise',
+      action='store_true')
+    parser.add_argument('--decoherence', help='Use wieghts trained with decoherence',
+      action='store_true')
 
     args = parser.parse_args()
+    if args.noise:
+        noise = True
+    else:
+        noise = False
+    if args.decoherence:
+        decoherence = True
+    else:
+        decoherence = False
     if args.no_test:
         test = False
     else:
@@ -188,16 +219,17 @@ if __name__ == '__main__':
         backend = IBMQ.get_backend(backend_name)
 
 
-    weights = get_weights()
+    weights = get_weights(noise=noise, decoherence=decoherence)
     circuits = [generate_circuit(n, weights, setup_only=setup_only)
                 for n in range(0, 4)]
 
     with open(filename, 'w', newline='', buffering=1) as outfile:
-        fields = ['backend', 'shots', 'state', '00', '10', '01', '11']
+        fields = ['backend', 'noise', 'decoherence', 'shots', 'state', '00', '10', '01', '11']
         writer = csv.writer(outfile)
         writer.writerow(fields)
         for count in range(delta * start, (end + 1) * delta, delta):
             eres = run_epoch(backend, circuits, count)
             for state in ['Bell', 'Flat', 'C', 'P']:
-                writer.writerow([backend, count, state, eres[state][0],
+                writer.writerow([backend, int(noise), int(decoherence),
+                  count, state, eres[state][0],
                   eres[state][1], eres[state][2], eres[state][3]])
